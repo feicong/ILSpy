@@ -1,0 +1,73 @@
+name: Standalone ilspycmd
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+    tags-ignore:
+      - '**'
+    paths-ignore:
+      - 'LICENSE'
+      - '**.md'
+      - 'doc/**'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: publish ${{ matrix.rid }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: osx-arm64
+            runner: macos-15
+            binary: ilspycmd
+          - rid: linux-arm64
+            runner: ubuntu-24.04-arm
+            binary: ilspycmd
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '11.0.x'
+          dotnet-quality: 'preview'
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Publish standalone ilspycmd
+        run: >
+          dotnet publish ICSharpCode.ILSpyCmd/ICSharpCode.ILSpyCmd.csproj
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          --output artifacts/${{ matrix.rid }}
+          /p:PublishSingleFile=true
+          /p:IncludeNativeLibrariesForSelfExtract=true
+          /p:EnableCompressionInSingleFile=true
+          /p:DebugType=None
+          /p:DebugSymbols=false
+          /p:GeneratePackageOnBuild=false
+          /p:RestoreLockedMode=false
+          /p:RestoreEnablePackagePruning=false
+
+      - name: Verify binary
+        run: |
+          chmod +x "artifacts/${{ matrix.rid }}/${{ matrix.binary }}"
+          "artifacts/${{ matrix.rid }}/${{ matrix.binary }}" --version
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ilspycmd-${{ matrix.rid }}
+          path: artifacts/${{ matrix.rid }}/${{ matrix.binary }}
