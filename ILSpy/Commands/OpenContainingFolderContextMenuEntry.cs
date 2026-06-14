@@ -26,10 +26,10 @@ using System.Runtime.InteropServices;
 using ICSharpCode.ILSpy.Properties;
 using ICSharpCode.ILSpyX.TreeView;
 
-using ILSpy.TreeNodes;
-using ILSpy.Util;
+using ICSharpCode.ILSpy.TreeNodes;
+using ICSharpCode.ILSpy.Util;
 
-namespace ILSpy.Commands
+namespace ICSharpCode.ILSpy.Commands
 {
 	/// <summary>
 	/// Right-click → "Open Containing Folder". Walks up the selection's parent chain to the
@@ -46,8 +46,9 @@ namespace ILSpy.Commands
 
 		public void Execute(TextViewContext context)
 		{
-			foreach (var path in GetPathsToReveal(context))
-				ShellHelper.RevealFile(path);
+			// Reveal all selected files in one grouped call so that several assemblies in the same
+			// folder open a single Explorer window (with them selected) rather than one per file.
+			ShellHelper.RevealFiles(GetPathsToReveal(context));
 		}
 
 		/// <summary>Public for tests: returns the on-disk file paths the reveal would target,

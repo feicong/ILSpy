@@ -33,9 +33,9 @@ using ICSharpCode.ILSpyX;
 using ICSharpCode.ILSpyX.Extensions;
 using ICSharpCode.ILSpyX.Search;
 
-using ILSpy.Languages;
+using ICSharpCode.ILSpy.Languages;
 
-namespace ILSpy.Search
+namespace ICSharpCode.ILSpy.Search
 {
 	/// <summary>
 	/// Orchestrates one search across the loaded <see cref="AssemblyList"/>. Walks
@@ -254,15 +254,18 @@ namespace ILSpy.Search
 			Completed?.Invoke(this);
 		}
 
-		SearchRequest BuildRequest()
+		internal SearchRequest BuildRequest()
 		{
 			var request = ParseInput(searchTerm ?? string.Empty, mode);
 			request.SearchResultFactory = resultFactory;
-			// MemberSearchStrategy.Search resolves a type system via
-			// module.GetTypeSystemWithDecompilerSettingsOrNull(request.DecompilerSettings);
-			// passing null short-circuits to zero results. Default settings are fine for
-			// search — we only need the type system to materialise.
-			request.DecompilerSettings = new DecompilerSettings();
+			// The search strategies resolve a type system via
+			// module.GetTypeSystemWithDecompilerSettingsOrNull(request.DecompilerSettings),
+			// which caches ONE type system per options value on the LoadedAssembly. Derive the
+			// settings from the user's current options so search hits the same cached instance
+			// the tree resolves through, instead of materialising a second type system per
+			// module (and disagreeing with the tree about settings-dependent entity shapes).
+			request.DecompilerSettings = AppEnv.AppComposition.TryGetExport<SettingsService>()
+				?.CreateEffectiveDecompilerSettings() ?? new DecompilerSettings();
 			return request;
 		}
 

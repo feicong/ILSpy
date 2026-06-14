@@ -26,16 +26,17 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using ICSharpCode.Decompiler;
+using ICSharpCode.Decompiler.CSharp.ProjectDecompiler;
 using ICSharpCode.ILSpy.Properties;
 using ICSharpCode.ILSpyX;
 
-using ILSpy.AssemblyTree;
-using ILSpy.Docking;
-using ILSpy.Languages;
-using ILSpy.TextView;
-using ILSpy.TreeNodes;
+using ICSharpCode.ILSpy.AssemblyTree;
+using ICSharpCode.ILSpy.Docking;
+using ICSharpCode.ILSpy.Languages;
+using ICSharpCode.ILSpy.TextView;
+using ICSharpCode.ILSpy.TreeNodes;
 
-namespace ILSpy.Commands
+namespace ICSharpCode.ILSpy.Commands
 {
 	/// <summary>
 	/// DEBUG-only File-menu stress test: decompile every loaded assembly to
@@ -65,6 +66,8 @@ namespace ILSpy.Commands
 
 		async Task ExecuteAsync()
 		{
+			var settings = AppEnv.AppComposition.TryGetExport<SettingsService>()?.CreateEffectiveDecompilerSettings()
+				?? new ICSharpCode.Decompiler.DecompilerSettings();
 			// Run in a dedicated frozen tab so navigation cannot cancel this long run.
 			await dockWorkspace.RunInNewTabAsync("Decompiling all assemblies…", token => Task.Run(() => {
 				var output = new AvaloniaEditTextOutput { Title = "Decompile All" };
@@ -77,11 +80,11 @@ namespace ILSpy.Commands
 							return;
 						var watch = Stopwatch.StartNew();
 						Exception? ex = null;
-						var path = Path.Combine(OutputDir, asm.ShortName + ".cs");
+						var path = Path.Combine(OutputDir, WholeProjectDecompiler.CleanUpFileName(asm.ShortName, ".cs"));
 						try
 						{
 							using var writer = new StreamWriter(path);
-							var options = new DecompilationOptions {
+							var options = new DecompilationOptions(settings) {
 								CancellationToken = token,
 								FullDecompilation = true,
 							};
@@ -132,6 +135,8 @@ namespace ILSpy.Commands
 
 		async Task ExecuteAsync()
 		{
+			var settings = AppEnv.AppComposition.TryGetExport<SettingsService>()?.CreateEffectiveDecompilerSettings()
+				?? new ICSharpCode.Decompiler.DecompilerSettings();
 			// Run in a dedicated frozen tab so navigation cannot cancel this long run.
 			await dockWorkspace.RunInNewTabAsync("Disassembling all assemblies…", token => Task.Run(() => {
 				var output = new AvaloniaEditTextOutput { Title = "Disassemble All" };
@@ -144,12 +149,12 @@ namespace ILSpy.Commands
 							return;
 						var watch = Stopwatch.StartNew();
 						Exception? ex = null;
-						var safeName = (asm.Text?.ToString() ?? asm.ShortName).Replace("(", "").Replace(")", "").Replace(' ', '_');
-						var path = Path.Combine(OutputDir, safeName + ".il");
+						var safeName = WholeProjectDecompiler.CleanUpFileName(asm.Text?.ToString() ?? asm.ShortName, ".il");
+						var path = Path.Combine(OutputDir, safeName);
 						try
 						{
 							using var writer = new StreamWriter(path);
-							var options = new DecompilationOptions {
+							var options = new DecompilationOptions(settings) {
 								CancellationToken = token,
 								FullDecompilation = true,
 							};
@@ -203,10 +208,12 @@ namespace ILSpy.Commands
 			var nodes = assemblyTreeModel.SelectedItems.OfType<ILSpyTreeNode>().ToArray();
 			if (nodes.Length == 0)
 				return;
+			var settings = AppEnv.AppComposition.TryGetExport<SettingsService>()?.CreateEffectiveDecompilerSettings()
+				?? new ICSharpCode.Decompiler.DecompilerSettings();
 			// Run in a dedicated frozen tab so navigation cannot cancel this long run.
 			await dockWorkspace.RunInNewTabAsync("Decompiling 100×…", token => Task.Run(() => {
 				var watch = Stopwatch.StartNew();
-				var options = new DecompilationOptions { CancellationToken = token };
+				var options = new DecompilationOptions(settings) { CancellationToken = token };
 				for (int i = 0; i < NumRuns; i++)
 				{
 					foreach (var node in nodes)

@@ -26,10 +26,10 @@ using ICSharpCode.Decompiler.Metadata;
 using ICSharpCode.Decompiler.TypeSystem;
 using ICSharpCode.ILSpyX;
 
-using ILSpy.AssemblyTree;
-using ILSpy.TreeNodes;
+using ICSharpCode.ILSpy.AssemblyTree;
+using ICSharpCode.ILSpy.TreeNodes;
 
-namespace ILSpy.Metadata
+namespace ICSharpCode.ILSpy.Metadata
 {
 	/// <summary>
 	/// Resolves metadata-grid interactions (a clicked token cell, a double-clicked row, a token
@@ -75,7 +75,7 @@ namespace ILSpy.Metadata
 				.FirstOrDefault(a => ReferenceEquals(a.GetMetadataFileOrNull(), file));
 			if (owningAssembly is null)
 				return null;
-			if (owningAssembly.GetTypeSystemOrNull()?.MainModule is not MetadataModule metadataModule)
+			if (file?.GetTypeSystemWithCurrentOptionsOrNull()?.MainModule is not MetadataModule metadataModule)
 				return null;
 			IEntity? entity;
 			try

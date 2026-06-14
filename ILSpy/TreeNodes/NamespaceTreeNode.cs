@@ -24,12 +24,12 @@ using ICSharpCode.Decompiler.Metadata;
 using ICSharpCode.Decompiler.TypeSystem;
 using ICSharpCode.ILSpyX;
 
-using ILSpy;
-using ILSpy.Languages;
+using ICSharpCode.ILSpy;
+using ICSharpCode.ILSpy.Languages;
 
-namespace ILSpy.TreeNodes
+namespace ICSharpCode.ILSpy.TreeNodes
 {
-	sealed class NamespaceTreeNode : ILSpyTreeNode
+	public sealed class NamespaceTreeNode : ILSpyTreeNode
 	{
 		readonly string name;
 		readonly string fullName;
@@ -68,7 +68,7 @@ namespace ILSpy.TreeNodes
 
 		public override object Text => name.Length == 0 ? "-" : name;
 
-		public override object Icon => Images.Images.Namespace;
+		public override object Icon => Images.Namespace;
 
 		// Stable identity for SessionSettings.ActiveTreeViewPath (used by AssemblyTreeModel.
 		// FindNodeByPath / GetPathForNode). Without this override the default Object.ToString
@@ -94,7 +94,9 @@ namespace ILSpy.TreeNodes
 
 		public override void Decompile(Language language, ITextOutput output, DecompilationOptions options)
 		{
-			var typeSystem = module.GetTypeSystemOrNull();
+			// Enumerate via the type system matching this run's settings so the namespace
+			// listing agrees with what the per-type decompilation below produces.
+			var typeSystem = module.GetTypeSystemWithDecompilerSettingsOrNull(options.DecompilerSettings);
 			if (typeSystem == null)
 			{
 				language.WriteCommentLine(output, "(type system unavailable)");

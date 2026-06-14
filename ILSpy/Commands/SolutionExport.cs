@@ -27,13 +27,13 @@ using ICSharpCode.ILSpy.Properties;
 using ICSharpCode.ILSpyX;
 using ICSharpCode.ILSpyX.TreeView;
 
-using ILSpy.Docking;
-using ILSpy.Languages;
-using ILSpy.TextView;
-using ILSpy.TreeNodes;
-using ILSpy.Util;
+using ICSharpCode.ILSpy.Docking;
+using ICSharpCode.ILSpy.Languages;
+using ICSharpCode.ILSpy.TextView;
+using ICSharpCode.ILSpy.TreeNodes;
+using ICSharpCode.ILSpy.Util;
 
-namespace ILSpy.Commands
+namespace ICSharpCode.ILSpy.Commands
 {
 	/// <summary>
 	/// The shared "export several assemblies as a Visual Studio solution" flow behind both the
@@ -73,10 +73,15 @@ namespace ILSpy.Commands
 			if (string.IsNullOrEmpty(path))
 				return;
 
+			// Snapshot the user's current decompiler settings for the whole export, like the
+			// per-project export path does.
+			var settings = AppEnv.AppComposition.TryGetExport<SettingsService>()?.CreateEffectiveDecompilerSettings()
+				?? new ICSharpCode.Decompiler.DecompilerSettings();
+
 			// Run in a dedicated frozen tab so browsing the tree while the export runs can't cancel it.
 			await dockWorkspace.RunInNewTabAsync("Exporting solution", async (token, progress) => {
 				var result = await SolutionWriter.CreateSolutionAsync(path, language, assemblies, token,
-						settings: null, strongNameKeyFile: null, progress: progress)
+						settings, strongNameKeyFile: null, progress: progress)
 					.ConfigureAwait(false);
 				var o = new AvaloniaEditTextOutput { Title = Resources._SaveCode };
 				o.Write(result.StatusText);

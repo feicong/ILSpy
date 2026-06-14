@@ -23,15 +23,16 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using ICSharpCode.Decompiler;
+using ICSharpCode.Decompiler.CSharp.ProjectDecompiler;
 using ICSharpCode.ILSpy.Properties;
 
-using ILSpy.Docking;
-using ILSpy.Languages;
-using ILSpy.TextView;
-using ILSpy.TreeNodes;
-using ILSpy.Util;
+using ICSharpCode.ILSpy.Docking;
+using ICSharpCode.ILSpy.Languages;
+using ICSharpCode.ILSpy.TextView;
+using ICSharpCode.ILSpy.TreeNodes;
+using ICSharpCode.ILSpy.Util;
 
-namespace ILSpy.Commands
+namespace ICSharpCode.ILSpy.Commands
 {
 	/// <summary>
 	/// The shared "Save Code" flow for a single tree node, used by both File -> Save Code (Ctrl+S)
@@ -60,7 +61,7 @@ namespace ILSpy.Commands
 				return;
 
 			var language = languageService.CurrentLanguage;
-			var defaultName = SuggestedFileName(node) + language.FileExtension;
+			var defaultName = SuggestedFileName(node.Text?.ToString(), language.FileExtension);
 			var path = await FilePickers.SaveAsync(
 				$"{language.Name} (*{language.FileExtension})|*{language.FileExtension}|All files|*.*",
 				defaultName).ConfigureAwait(true);
@@ -106,7 +107,9 @@ namespace ILSpy.Commands
 			ArgumentNullException.ThrowIfNull(node);
 			ArgumentNullException.ThrowIfNull(language);
 
-			var options = new DecompilationOptions {
+			var settings = AppEnv.AppComposition.TryGetExport<SettingsService>()?.CreateEffectiveDecompilerSettings()
+				?? new ICSharpCode.Decompiler.DecompilerSettings();
+			var options = new DecompilationOptions(settings) {
 				FullDecompilation = true,
 				EscapeInvalidIdentifiers = true,
 				CancellationToken = ct,
@@ -125,18 +128,14 @@ namespace ILSpy.Commands
 			}
 		}
 
-		// A reasonable default file name for the save dialog: the node's text, cleaned of characters
-		// that aren't valid in a file name; falls back to "output" when nothing usable remains.
-		static string SuggestedFileName(ILSpyTreeNode node)
+		// A reasonable default file name for the save dialog: the node's text run through the
+		// project decompiler's file-name cleanup (which also escapes reserved Windows device names
+		// like "Con"); falls back to "output" when the node has no usable text.
+		internal static string SuggestedFileName(string? text, string extension)
 		{
-			var text = node.Text?.ToString();
 			if (string.IsNullOrWhiteSpace(text))
-				return "output";
-			var clean = text;
-			foreach (var c in Path.GetInvalidFileNameChars())
-				clean = clean.Replace(c, '_');
-			clean = clean.Trim();
-			return string.IsNullOrEmpty(clean) ? "output" : clean;
+				text = "output";
+			return WholeProjectDecompiler.CleanUpFileName(text, extension);
 		}
 
 	}

@@ -23,11 +23,12 @@ using Avalonia.Headless.NUnit;
 
 using AwesomeAssertions;
 
-using ILSpy;
-using ILSpy.AppEnv;
-using ILSpy.Languages;
-using ILSpy.TextView;
-using ILSpy.TreeNodes;
+using ICSharpCode.Decompiler;
+using ICSharpCode.ILSpy;
+using ICSharpCode.ILSpy.AppEnv;
+using ICSharpCode.ILSpy.Languages;
+using ICSharpCode.ILSpy.TextView;
+using ICSharpCode.ILSpy.TreeNodes;
 
 using NUnit.Framework;
 
@@ -60,7 +61,7 @@ public class CSharpILMixedLanguageTests
 		string Decompile(Language language)
 		{
 			var output = new AvaloniaEditTextOutput();
-			language.DecompileMethod(method, output, new DecompilationOptions());
+			language.DecompileMethod(method, output, new DecompilationOptions(new DecompilerSettings()));
 			return output.GetText();
 		}
 

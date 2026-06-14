@@ -36,12 +36,12 @@ using CommunityToolkit.Mvvm.Input;
 
 using ICSharpCode.Decompiler;
 
-using ILSpy.Languages;
-using ILSpy.Options;
-using ILSpy.TreeNodes;
-using ILSpy.ViewModels;
+using ICSharpCode.ILSpy.Languages;
+using ICSharpCode.ILSpy.Options;
+using ICSharpCode.ILSpy.TreeNodes;
+using ICSharpCode.ILSpy.ViewModels;
 
-namespace ILSpy.TextView
+namespace ICSharpCode.ILSpy.TextView
 {
 	/// <summary>
 	/// A document tab that hosts decompiled output for a single tree node. Re-decompiles when
@@ -67,7 +67,7 @@ namespace ILSpy.TextView
 			if (!string.IsNullOrEmpty(newValue)
 				&& System.Threading.Interlocked.Exchange(ref firstTextMarked, 1) == 0)
 			{
-				ILSpy.AppEnv.AppLog.Mark("DecompilerTabPageModel: first non-empty Text set");
+				ICSharpCode.ILSpy.AppEnv.AppLog.Mark("DecompilerTabPageModel: first non-empty Text set");
 			}
 		}
 
@@ -404,11 +404,11 @@ namespace ILSpy.TextView
 			output.WriteLine();
 			if (wasNormalLimit)
 			{
-				output.AddButton(Images.Images.ViewCode, ICSharpCode.ILSpy.Properties.Resources.DisplayCode,
+				output.AddButton(Images.ViewCode, ICSharpCode.ILSpy.Properties.Resources.DisplayCode,
 					(_, _) => RestartDecompileWithOutputLimit(ExtendedOutputLengthLimit));
 				output.WriteLine();
 			}
-			output.AddButton(Images.Images.Save, ICSharpCode.ILSpy.Properties.Resources.SaveCode,
+			output.AddButton(Images.Save, ICSharpCode.ILSpy.Properties.Resources.SaveCode,
 				(_, _) => SaveCurrentNode());
 			output.WriteLine();
 			return output;
@@ -423,7 +423,7 @@ namespace ILSpy.TextView
 			var dockWorkspace = AppEnv.AppComposition.TryGetExport<Docking.DockWorkspace>();
 			if (languageService is null || dockWorkspace is null)
 				return;
-			ILSpy.Commands.SaveCodeHelper.SaveNodeAsync(node, languageService, dockWorkspace).HandleExceptions();
+			ICSharpCode.ILSpy.Commands.SaveCodeHelper.SaveNodeAsync(node, languageService, dockWorkspace).HandleExceptions();
 		}
 
 		// Fire-and-forget wrapper around DecompileAsync that observes the resulting Task.
@@ -460,7 +460,7 @@ namespace ILSpy.TextView
 		async Task DecompileAsync()
 		{
 			var callNumber = System.Threading.Interlocked.Increment(ref decompileInvocationCount);
-			using var _phase = ILSpy.AppEnv.AppLog.Phase($"DecompileAsync #{callNumber}");
+			using var _phase = ICSharpCode.ILSpy.AppEnv.AppLog.Phase($"DecompileAsync #{callNumber}");
 			activeCts?.Cancel();
 			var cts = activeCts = new CancellationTokenSource();
 			var nodes = currentNodes;
@@ -510,21 +510,18 @@ namespace ILSpy.TextView
 				var outputLengthLimit = pendingOutputLengthLimit;
 				pendingOutputLengthLimit = DefaultOutputLengthLimit;
 				AvaloniaEditTextOutput output;
-				using (ILSpy.AppEnv.AppLog.Phase($"DecompileAsync #{callNumber}: Task.Run decompile body ({nodes.Count} node(s), language={language.Name})"))
+				using (ICSharpCode.ILSpy.AppEnv.AppLog.Phase($"DecompileAsync #{callNumber}: Task.Run decompile body ({nodes.Count} node(s), language={language.Name})"))
 				{
 					(output, _) = await Task.Run(() => {
 						var output = new AvaloniaEditTextOutput { LengthLimit = outputLengthLimit };
-						var options = decompilerSettings != null
-							? new DecompilationOptions(decompilerSettings) {
-								CancellationToken = cts.Token,
-								StepLimit = stepLimit,
-								IsDebug = isDebug,
-							}
-							: new DecompilationOptions {
-								CancellationToken = cts.Token,
-								StepLimit = stepLimit,
-								IsDebug = isDebug,
-							};
+						// decompilerSettings is null only in design-time / minimal test hosts
+						// without composition; fall back to defaults there.
+						var options = new DecompilationOptions(
+							decompilerSettings ?? new ICSharpCode.Decompiler.DecompilerSettings()) {
+							CancellationToken = cts.Token,
+							StepLimit = stepLimit,
+							IsDebug = isDebug,
+						};
 						try
 						{
 							for (int i = 0; i < nodes.Count; i++)
@@ -561,13 +558,13 @@ namespace ILSpy.TextView
 					return;
 
 				string rendered;
-				using (ILSpy.AppEnv.AppLog.Phase($"DecompileAsync #{callNumber}: collect output (GetText + collateral)"))
+				using (ICSharpCode.ILSpy.AppEnv.AppLog.Phase($"DecompileAsync #{callNumber}: collect output (GetText + collateral)"))
 					rendered = output.GetText();
 				// Resource nodes (XML/XAML/…) override the highlighter so their content reads as
 				// the embedded format, not as the active language.
 				var effectiveSyntaxExtension = output.SyntaxExtensionOverride ?? newSyntaxExtension;
-				ILSpy.AppEnv.AppLog.Mark($"DecompileAsync #{callNumber}: {rendered.Length} chars, {(output.Foldings?.Count ?? 0)} foldings, {(output.References?.Count ?? 0)} refs");
-				using (ILSpy.AppEnv.AppLog.Phase($"DecompileAsync #{callNumber}: Dispatcher.InvokeAsync (apply Text + props, triggers ApplyDocument)"))
+				ICSharpCode.ILSpy.AppEnv.AppLog.Mark($"DecompileAsync #{callNumber}: {rendered.Length} chars, {(output.Foldings?.Count ?? 0)} foldings, {(output.References?.Count ?? 0)} refs");
+				using (ICSharpCode.ILSpy.AppEnv.AppLog.Phase($"DecompileAsync #{callNumber}: Dispatcher.InvokeAsync (apply Text + props, triggers ApplyDocument)"))
 					await Dispatcher.UIThread.InvokeAsync(() => {
 						Title = cachedBaseTitle;
 						ApplyOutput(output, effectiveSyntaxExtension, rendered);
@@ -714,52 +711,10 @@ namespace ILSpy.TextView
 			Text = text;
 		}
 
-		// Pulls the live DecompilerSettings via MEF and returns a clone for this run. Also
-		// bakes the active LanguageService.CurrentVersion into the clone — without this the
-		// toolbar's Language-Version dropdown writes-through to LanguageSettings but never
-		// reaches the decompiler. Resolves go through TryGetExport so design-time / minimal test
-		// hosts that bypass composition fall back to default settings rather than throwing.
+		// Pulls the effective DecompilerSettings (clone + Display options + toolbar language
+		// version) for this run. Resolves via TryGetExport so design-time / minimal test hosts
+		// that bypass composition fall back to default settings rather than throwing.
 		static ICSharpCode.Decompiler.DecompilerSettings? TryGetLiveDecompilerSettings()
-		{
-			var settingsService = AppEnv.AppComposition.TryGetExport<SettingsService>();
-			if (settingsService is null)
-				return null;
-			var settings = settingsService.DecompilerSettings.Clone();
-			ApplyDisplaySettings(settings, settingsService.DisplaySettings);
-			// No LanguageService (non-C# language or minimal host) leaves version null, so the
-			// language version falls back to Latest below.
-			var version = AppEnv.AppComposition.TryGetExport<Languages.LanguageService>()?.CurrentVersion;
-			if (Enum.TryParse<ICSharpCode.Decompiler.CSharp.LanguageVersion>(version?.Version, out var languageVersion))
-				settings.SetLanguageVersion(languageVersion);
-			else
-				settings.SetLanguageVersion(ICSharpCode.Decompiler.CSharp.LanguageVersion.Latest);
-			return settings;
-		}
-
-		/// <summary>
-		/// Bridges the Display options that affect decompiler output into <paramref name="settings"/>:
-		/// the fold-expansion flags (TextTokenWriter reads them to set each fold's DefaultClosed),
-		/// brace folding, debug-symbol info, and the indentation string. Without this these Display
-		/// options would have no effect on the produced source.
-		/// </summary>
-		internal static void ApplyDisplaySettings(ICSharpCode.Decompiler.DecompilerSettings settings, DisplaySettings display)
-		{
-			settings.ExpandUsingDeclarations = display.ExpandUsingDeclarations;
-			settings.ExpandMemberDefinitions = display.ExpandMemberDefinitions;
-			settings.FoldBraces = display.FoldBraces;
-			settings.ShowDebugInfo = display.ShowDebugInfo;
-			settings.CSharpFormattingOptions.IndentationString = GetIndentationString(display);
-		}
-
-		static string GetIndentationString(DisplaySettings display)
-		{
-			if (display.IndentationUseTabs)
-			{
-				int tabs = display.IndentationSize / display.IndentationTabSize;
-				int spaces = display.IndentationSize % display.IndentationTabSize;
-				return new string('\t', tabs) + new string(' ', spaces);
-			}
-			return new string(' ', display.IndentationSize);
-		}
+			=> AppEnv.AppComposition.TryGetExport<SettingsService>()?.CreateEffectiveDecompilerSettings();
 	}
 }

@@ -26,17 +26,17 @@ using ICSharpCode.Decompiler;
 using ICSharpCode.Decompiler.Metadata;
 using ICSharpCode.ILSpyX.Abstractions;
 
-using ILSpy;
-using ILSpy.AppEnv;
-using ILSpy.Baml;
-using ILSpy.Languages;
-using ILSpy.TreeNodes;
-using ILSpy.Views;
+using ICSharpCode.ILSpy;
+using ICSharpCode.ILSpy.AppEnv;
+using ICSharpCode.ILSpy.Baml;
+using ICSharpCode.ILSpy.Languages;
+using ICSharpCode.ILSpy.TreeNodes;
+using ICSharpCode.ILSpy.Views;
 
 using NUnit.Framework;
 
-using IResourceFileHandler = ILSpy.Languages.IResourceFileHandler;
-using ResourceFileHandlerContext = ILSpy.Languages.ResourceFileHandlerContext;
+using IResourceFileHandler = ICSharpCode.ILSpy.Languages.IResourceFileHandler;
+using ResourceFileHandlerContext = ICSharpCode.ILSpy.Languages.ResourceFileHandlerContext;
 
 namespace ICSharpCode.ILSpy.Tests;
 
@@ -94,7 +94,7 @@ public class BamlResourceTests
 		// (the handler doesn't touch the options for CanHandle).
 		EnsureComposition();
 		var handler = new BamlResourceFileHandler();
-		var context = new ResourceFileHandlerContext(new DecompilationOptions());
+		var context = new ResourceFileHandlerContext(new DecompilationOptions(new DecompilerSettings()));
 
 		// Act + Assert — three positive variants and two rejections.
 		handler.CanHandle("MainWindow.baml", context).Should().BeTrue();

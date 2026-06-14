@@ -21,7 +21,7 @@ using System.Threading;
 
 using ICSharpCode.Decompiler;
 
-namespace ILSpy
+namespace ICSharpCode.ILSpy
 {
 	/// <summary>
 	/// Options passed to <see cref="Languages.Language"/>'s Decompile* methods. Just enough
@@ -75,11 +75,13 @@ namespace ILSpy
 		/// </summary>
 		public IProgress<DecompilationProgress>? ProgressIndicator { get; set; }
 
+		// Deliberately no parameterless constructor: every decompilation must make an explicit
+		// choice of settings. Callers inside the app want the user's current settings (see
+		// SettingsService.CreateEffectiveDecompilerSettings), and a silent new DecompilerSettings()
+		// default has repeatedly masked exactly that bug.
 		public DecompilationOptions(DecompilerSettings settings)
 		{
 			DecompilerSettings = settings;
 		}
-
-		public DecompilationOptions() : this(new DecompilerSettings()) { }
 	}
 }

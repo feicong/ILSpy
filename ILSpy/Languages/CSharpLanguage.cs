@@ -47,7 +47,7 @@ using ConversionFlags = ICSharpCode.Decompiler.Output.ConversionFlags;
 using CSharpLanguageVersion = ICSharpCode.Decompiler.CSharp.LanguageVersion;
 using LanguageVersionDto = ICSharpCode.ILSpyX.LanguageVersion;
 
-namespace ILSpy.Languages
+namespace ICSharpCode.ILSpy.Languages
 {
 	[Export(typeof(Language))]
 	[Shared]
@@ -59,7 +59,7 @@ namespace ILSpy.Languages
 
 		public override string ProjectFileExtension => ".csproj";
 
-		public override ILSpy.TextView.IBracketSearcher BracketSearcher { get; } = new CSharpBracketSearcher();
+		public override ICSharpCode.ILSpy.TextView.IBracketSearcher BracketSearcher { get; } = new CSharpBracketSearcher();
 
 		static IReadOnlyList<LanguageVersionDto>? cachedVersions;
 
@@ -257,7 +257,12 @@ namespace ILSpy.Languages
 			var assembly = member.ParentModule?.MetadataFile;
 			if (assembly == null)
 				return true;
-			return !CSharpDecompiler.MemberIsHidden(assembly, member.MetadataToken, new DecompilerSettings());
+			// Use the effective settings, not defaults: which members MemberIsHidden hides
+			// depends on the decompiler options (and language version), and the tree must agree
+			// with what the text view actually elides.
+			var settings = AppEnv.AppComposition.TryGetExport<SettingsService>()?.CreateEffectiveDecompilerSettings()
+				?? new DecompilerSettings();
+			return !CSharpDecompiler.MemberIsHidden(assembly, member.MetadataToken, settings);
 		}
 
 		public override RichText GetRichTextTooltip(IEntity entity)
@@ -702,7 +707,7 @@ namespace ILSpy.Languages
 						new global::Avalonia.Controls.Image {
 							Width = 32,
 							Height = 32,
-							Source = Images.Images.Warning,
+							Source = Images.Warning,
 						},
 						new global::Avalonia.Controls.TextBlock {
 							Margin = new global::Avalonia.Thickness(5, 0, 0, 0),

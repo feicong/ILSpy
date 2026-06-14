@@ -28,6 +28,7 @@ using Avalonia.Controls.Documents;
 using Avalonia.Media;
 
 using ICSharpCode.Decompiler;
+using ICSharpCode.Decompiler.CSharp.ProjectDecompiler;
 using ICSharpCode.Decompiler.Metadata;
 using ICSharpCode.Decompiler.TypeSystem;
 using ICSharpCode.ILSpyX;
@@ -35,13 +36,13 @@ using ICSharpCode.ILSpyX.FileLoaders;
 using ICSharpCode.ILSpyX.PdbProvider;
 using ICSharpCode.ILSpyX.TreeView;
 
-using ILSpy;
-using ILSpy.AppEnv;
-using ILSpy.Languages;
+using ICSharpCode.ILSpy;
+using ICSharpCode.ILSpy.AppEnv;
+using ICSharpCode.ILSpy.Languages;
 
-namespace ILSpy.TreeNodes
+namespace ICSharpCode.ILSpy.TreeNodes
 {
-	sealed class AssemblyTreeNode : ILSpyTreeNode
+	public sealed class AssemblyTreeNode : ILSpyTreeNode
 	{
 		readonly LoadedAssembly assembly;
 		string? loadError;
@@ -100,7 +101,7 @@ namespace ILSpy.TreeNodes
 
 		public override ICSharpCode.ILSpyX.TreeView.PlatformAbstractions.IPlatformDataObject Copy(SharpTreeNode[] nodes)
 		{
-			var data = new ILSpy.Controls.TreeView.AvaloniaDataObject();
+			var data = new ICSharpCode.ILSpy.Controls.TreeView.AvaloniaDataObject();
 			data.SetData(DataFormat, nodes.OfType<AssemblyTreeNode>().Select(n => n.LoadedAssembly.FileName).ToArray());
 			return data;
 		}
@@ -182,11 +183,10 @@ namespace ILSpy.TreeNodes
 
 		async Task SaveAsProjectOrSingleFileAsync(Language language)
 		{
-			var shortName = CleanSuggestedFileName(assembly.ShortName);
 			var filter = $"{language.Name} project (*{language.ProjectFileExtension})|*{language.ProjectFileExtension}"
 				+ $"|{language.Name} (*{language.FileExtension})|*{language.FileExtension}"
 				+ "|All files (*.*)|*.*";
-			var defaultName = shortName + language.ProjectFileExtension;
+			var defaultName = WholeProjectDecompiler.CleanUpFileName(assembly.ShortName, language.ProjectFileExtension);
 			var path = await Commands.FilePickers.SaveAsync(filter, defaultName, "Save Code").ConfigureAwait(false);
 			if (string.IsNullOrEmpty(path))
 				return;
@@ -194,8 +194,10 @@ namespace ILSpy.TreeNodes
 			var ext = Path.GetExtension(path);
 			var isProject = string.Equals(ext, language.ProjectFileExtension, StringComparison.OrdinalIgnoreCase);
 
+			var settings = AppEnv.AppComposition.TryGetExport<SettingsService>()?.CreateEffectiveDecompilerSettings()
+				?? new ICSharpCode.Decompiler.DecompilerSettings();
 			await Task.Run(() => {
-				var options = new DecompilationOptions {
+				var options = new DecompilationOptions(settings) {
 					FullDecompilation = true,
 					EscapeInvalidIdentifiers = true,
 				};
@@ -217,15 +219,6 @@ namespace ILSpy.TreeNodes
 			}).ConfigureAwait(false);
 		}
 
-		static string CleanSuggestedFileName(string name)
-		{
-			var invalid = Path.GetInvalidFileNameChars();
-			var clean = name;
-			foreach (var c in invalid)
-				clean = clean.Replace(c, '_');
-			return clean;
-		}
-
 		static LanguageService? TryGetLanguageService()
 		{
 			try
@@ -242,28 +235,28 @@ namespace ILSpy.TreeNodes
 		public override object Icon {
 			get {
 				if (assembly.HasLoadError || loadError != null)
-					return Images.Images.AssemblyWarning;
+					return Images.AssemblyWarning;
 				if (!assembly.IsLoaded)
-					return Images.Images.AssemblyLoading;
+					return Images.AssemblyLoading;
 
 				var loadResult = assembly.GetLoadResultAsync().GetAwaiter().GetResult();
 				if (loadResult.Package != null)
 				{
 					return loadResult.Package.Kind switch {
-						LoadedPackage.PackageKind.Zip => Images.Images.NuGet,
-						_ => Images.Images.Library,
+						LoadedPackage.PackageKind.Zip => Images.NuGet,
+						_ => Images.Library,
 					};
 				}
 				if (loadResult.MetadataFile != null)
 				{
 					return loadResult.MetadataFile.Kind switch {
-						MetadataFile.MetadataFileKind.PortableExecutable => Images.Images.Assembly,
-						MetadataFile.MetadataFileKind.ProgramDebugDatabase => Images.Images.ProgramDebugDatabase,
-						MetadataFile.MetadataFileKind.WebCIL => Images.Images.WebAssemblyFile,
-						_ => Images.Images.MetadataFile,
+						MetadataFile.MetadataFileKind.PortableExecutable => Images.Assembly,
+						MetadataFile.MetadataFileKind.ProgramDebugDatabase => Images.ProgramDebugDatabase,
+						MetadataFile.MetadataFileKind.WebCIL => Images.WebAssemblyFile,
+						_ => Images.MetadataFile,
 					};
 				}
-				return Images.Images.Assembly;
+				return Images.Assembly;
 			}
 		}
 
@@ -369,7 +362,7 @@ namespace ILSpy.TreeNodes
 				return;
 			}
 
-			Children.Add(new ILSpy.Metadata.MetadataTreeNode(module, ICSharpCode.ILSpy.Properties.Resources.Metadata));
+			Children.Add(new ICSharpCode.ILSpy.Metadata.MetadataTreeNode(module, ICSharpCode.ILSpy.Properties.Resources.Metadata));
 
 			// Surface portable PDB metadata (embedded or side-by-side) as a top-level sibling
 			// of the host Metadata folder so PDB browsing is one click away instead of buried
@@ -380,7 +373,7 @@ namespace ILSpy.TreeNodes
 				&& ppdb.GetMetadataReader() is not null)
 			{
 				var label = $"Debug Metadata ({(ppdb.IsEmbedded ? "Embedded" : "From portable PDB")})";
-				Children.Add(new ILSpy.Metadata.MetadataTreeNode(ppdb.ToMetadataFile(), label));
+				Children.Add(new ICSharpCode.ILSpy.Metadata.MetadataTreeNode(ppdb.ToMetadataFile(), label));
 			}
 
 			Children.Add(new ReferenceFolderTreeNode(module, this));

@@ -25,13 +25,12 @@ using ICSharpCode.Decompiler;
 using ICSharpCode.Decompiler.Output;
 using ICSharpCode.Decompiler.TypeSystem;
 
-using ILSpy.AppEnv;
-using ILSpy.Images;
-using ILSpy.Languages;
+using ICSharpCode.ILSpy.AppEnv;
+using ICSharpCode.ILSpy.Languages;
 
 using SRM = System.Reflection.Metadata;
 
-namespace ILSpy.TreeNodes
+namespace ICSharpCode.ILSpy.TreeNodes
 {
 	/// <summary>
 	/// Tree-node container for a single C# 14 explicit-extension declaration block
@@ -40,7 +39,7 @@ namespace ILSpy.TreeNodes
 	/// methods/properties; the block's own members (methods + properties) appear as
 	/// children of this node when expanded.
 	/// </summary>
-	internal sealed class ExtensionTreeNode : ILSpyTreeNode
+	public sealed class ExtensionTreeNode : ILSpyTreeNode
 	{
 		public ExtensionTreeNode(
 			ITypeDefinition typeDefinition,
@@ -59,7 +58,7 @@ namespace ILSpy.TreeNodes
 		public IReadOnlyList<ITypeParameter> TypeParameters { get; }
 		public AssemblyTreeNode ParentAssemblyNode { get; }
 
-		public override object Icon => Images.Images.GetIcon(Images.Images.Class, AccessOverlayIcon.Public, isStatic: false, isExtension: true);
+		public override object Icon => Images.GetIcon(Images.Class, AccessOverlayIcon.Public, isStatic: false, isExtension: true);
 
 		public override object Text
 			=> Language.TypeToString(GetTypeDefinition(), ConversionFlags.SupportExtensionDeclarations);
@@ -70,10 +69,11 @@ namespace ILSpy.TreeNodes
 				| ConversionFlags.UseFullyQualifiedEntityNames
 				| ConversionFlags.SupportExtensionDeclarations);
 
-		// Avalonia uses the constructor-time marker reference directly. WPF re-resolves
-		// through GetTypeSystemWithCurrentOptionsOrNull so language-version flips refresh
-		// the display string immediately; the Avalonia port doesn't yet expose that helper
-		// (see `extension-methods-tree` follow-ups in the tracker).
+		// Uses the constructor-time marker reference directly. The marker comes from the
+		// parent TypeTreeNode, which resolves through GetTypeSystemWithCurrentOptionsOrNull,
+		// so the chain is consistent with the current settings; per-access re-resolution (so
+		// language-version flips refresh the display string without rebuilding the node, as
+		// WPF does) remains a follow-up (see `extension-methods-tree` in the tracker).
 		ITypeDefinition GetTypeDefinition() => MarkerMethod.DeclaringTypeDefinition!;
 
 		protected override void LoadChildren()
@@ -107,7 +107,7 @@ namespace ILSpy.TreeNodes
 		{
 			try
 			{
-				return AppComposition.Current.GetExport<global::ILSpy.SettingsService>().DecompilerSettings.Clone();
+				return AppComposition.Current.GetExport<ICSharpCode.ILSpy.SettingsService>().DecompilerSettings.Clone();
 			}
 			catch
 			{

@@ -28,13 +28,13 @@ using AwesomeAssertions;
 using ICSharpCode.Decompiler;
 using ICSharpCode.Decompiler.Metadata;
 
-using ILSpy;
-using ILSpy.AppEnv;
-using ILSpy.ImageList;
-using ILSpy.Languages;
-using ILSpy.TextView;
-using ILSpy.TreeNodes;
-using ILSpy.Views;
+using ICSharpCode.ILSpy;
+using ICSharpCode.ILSpy.AppEnv;
+using ICSharpCode.ILSpy.ImageList;
+using ICSharpCode.ILSpy.Languages;
+using ICSharpCode.ILSpy.TextView;
+using ICSharpCode.ILSpy.TreeNodes;
+using ICSharpCode.ILSpy.Views;
 
 using NUnit.Framework;
 
@@ -127,7 +127,7 @@ public class ImageListResourceEntryNodeTests
 		var output = new AvaloniaEditTextOutput();
 		var language = AppComposition.Current.GetExport<LanguageService>().CurrentLanguage;
 
-		node.Decompile(language, output, new DecompilationOptions());
+		node.Decompile(language, output, new DecompilationOptions(new DecompilerSettings()));
 
 		output.UIElements.Should().HaveCount(1,
 			"the parent's Decompile contributes exactly one inline preview panel");
